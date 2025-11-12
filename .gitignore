@@ -1,0 +1,50 @@
+# Python cache / bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Flask instance folder (config, sqlite, uploads itd.)
+instance/
+
+# SQLite baza
+*.sqlite3
+*.db
+migrations/
+
+# Pytest / coverage / cache
+.pytest_cache/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+
+# Build / distribution artefacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# VS Code settings
+.vscode/
+
+# PyCharm project files
+.idea/
+
+# Environment variables
+.env
+
+# Logs
+*.log
+
+# mypy cache
+.mypy_cache/
