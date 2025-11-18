@@ -17,3 +17,6 @@ class BaseModel(model):
         default=utc_now,
         onupdate=utc_now,
     )
+
+    def soft_delete(self) -> None:
+        self.is_deleted = True
