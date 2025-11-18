@@ -10,6 +10,7 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from . import db, model, utc_now
 from .base import BaseModel
@@ -25,14 +26,28 @@ class User(BaseModel):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     bio: Mapped[str] = mapped_column(String(350), default="No bio")
     owned_groups: Mapped[list["Group"]] = relationship(
-        back_populates="owner", cascade="all, delete-orphan"
+        "Group", back_populates="owner", cascade="all, delete-orphan", lazy="selectin"
     )
     owned_events: Mapped[list["Event"]] = relationship(
-        back_populates="owner", cascade="all, delete-orphan"
+        "Event", back_populates="owner", cascade="all, delete-orphan", lazy="selectin"
     )
     events: Mapped[list["EventAttendee"]] = relationship(
-        "EventAttendee", back_populates="user"
+        "EventAttendee",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
     )
+
+    @property
+    def password(self) -> None:
+        raise AttributeError("Password is write-only")
+
+    @password.setter
+    def password(self, password: str) -> None:
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password) -> bool:
+        return check_password_hash(self.password_hash, password)
 
 
 group_tags = db.Table(
@@ -52,7 +67,10 @@ class Group(BaseModel):
     )
     owner: Mapped["User"] = relationship("User", back_populates="owned_groups")
     tags: Mapped[list["Tag"]] = relationship(
-        "Tag", secondary=group_tags, back_populates="groups"
+        "Tag",
+        secondary=group_tags,
+        back_populates="groups",
+        lazy="selectin",
     )
 
 
@@ -78,7 +96,12 @@ class Location(BaseModel):
     country: Mapped[str] = mapped_column(String(100), nullable=False)
     latitude: Mapped[float] = mapped_column(Float, nullable=True)
     longitude: Mapped[float] = mapped_column(Float, nullable=True)
-    events: Mapped[list["Event"]] = relationship("Event", back_populates="location")
+    events: Mapped[list["Event"]] = relationship(
+        "Event",
+        back_populates="location",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+    )
 
 
 event_tags = db.Table(
@@ -105,7 +128,7 @@ class Event(BaseModel):
         nullable=True,
     )
     attendees: Mapped[list["EventAttendee"]] = relationship(
-        "EventAttendee", back_populates="event"
+        "EventAttendee", back_populates="event", lazy="selectin"
     )
 
     location_id: Mapped[int] = mapped_column(
@@ -114,7 +137,7 @@ class Event(BaseModel):
     location: Mapped["Location"] = relationship("Location", back_populates="events")
 
     tags: Mapped[list["Tag"]] = relationship(
-        "Tag", secondary=event_tags, back_populates="events"
+        "Tag", secondary=event_tags, back_populates="events", lazy="selectin"
     )
 
 
@@ -141,8 +164,8 @@ class Tag(BaseModel):
     name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
 
     events: Mapped[list["Event"]] = relationship(
-        "Event", secondary=event_tags, back_populates="tags"
+        "Event", secondary=event_tags, back_populates="tags", lazy="selectin"
     )
     groups: Mapped[list["Group"]] = relationship(
-        "Group", secondary=group_tags, back_populates="tags"
+        "Group", secondary=group_tags, back_populates="tags", lazy="selectin"
     )
