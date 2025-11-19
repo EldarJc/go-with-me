@@ -4,7 +4,7 @@ from flask_restx import Api
 
 from config import BaseConfig
 
-from .models import db, db_migrate
+from .database import db, db_migrate
 
 login_manager = LoginManager()
 api = Api()
