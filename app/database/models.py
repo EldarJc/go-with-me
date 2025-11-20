@@ -1,22 +1,25 @@
 from datetime import datetime
 
+from flask_login import UserMixin
 from sqlalchemy import (
     DateTime,
+    Enum,
     Float,
     ForeignKey,
     Integer,
-    PrimaryKeyConstraint,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from . import db, model, utc_now
+from . import db
 from .base import BaseModel
+from .enums import EventRole, GroupRole
 
 
-class User(BaseModel):
+class User(UserMixin, BaseModel):
     __tablename__ = "users"
 
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
@@ -36,6 +39,12 @@ class User(BaseModel):
         back_populates="user",
         cascade="all, delete-orphan",
         lazy="selectin",
+    )
+    joined_groups: Mapped[list["GroupMember"]] = relationship(
+        "GroupMember",
+        back_populates="user",
+        lazy="selectin",
+        cascade="all, delete-orphan",
     )
 
     @property
@@ -72,9 +81,15 @@ class Group(BaseModel):
         back_populates="groups",
         lazy="selectin",
     )
+    members: Mapped[list["GroupMember"]] = relationship(
+        "GroupMember",
+        back_populates="group",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+    )
 
 
-class GroupMember(model):
+class GroupMember(BaseModel):
     __tablename__ = "group_members"
 
     group_id: Mapped[int] = mapped_column(
@@ -83,9 +98,14 @@ class GroupMember(model):
     user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    role: Mapped[GroupRole] = mapped_column(
+        Enum(GroupRole), default=GroupRole.MEMBER, nullable=False
+    )
 
-    __table_args__ = PrimaryKeyConstraint("group_id", "user_id", name="pk_group_user")
+    group: Mapped["Group"] = relationship("Group", back_populates="members")
+    user: Mapped["User"] = relationship("User", back_populates="joined_groups")
+
+    __table_args__ = (UniqueConstraint("group_id", "user_id", name="uq_group_user"),)
 
 
 class Location(BaseModel):
@@ -128,11 +148,14 @@ class Event(BaseModel):
         nullable=True,
     )
     attendees: Mapped[list["EventAttendee"]] = relationship(
-        "EventAttendee", back_populates="event", lazy="selectin"
+        "EventAttendee",
+        back_populates="event",
+        lazy="selectin",
+        cascade="all, delete-orphan",
     )
 
     location_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("locations.id", nullable=False)
+        Integer, ForeignKey("locations.id"), nullable=False
     )
     location: Mapped["Location"] = relationship("Location", back_populates="events")
 
@@ -141,7 +164,7 @@ class Event(BaseModel):
     )
 
 
-class EventAttendee(model):
+class EventAttendee(BaseModel):
     __tablename__ = "event_attendees"
 
     user_id: Mapped[int] = mapped_column(
@@ -150,12 +173,13 @@ class EventAttendee(model):
     event_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("events.id", ondelete="CASCADE"), nullable=False
     )
+    role: Mapped[EventRole] = mapped_column(
+        Enum(EventRole), default=EventRole.PARTICIPANT, nullable=False
+    )
     user: Mapped["User"] = relationship("User", back_populates="events")
     event: Mapped["Event"] = relationship("Event", back_populates="attendees")
 
-    __table_args__ = (
-        PrimaryKeyConstraint("user_id", "event_id", name="pk_user_event"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "event_id", name="uq_user_event"),)
 
 
 class Tag(BaseModel):
