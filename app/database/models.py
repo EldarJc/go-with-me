@@ -14,6 +14,8 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from app import login_manager
+
 from . import db
 from .base import BaseModel
 from .enums import EventRole, GroupRole
@@ -57,6 +59,11 @@ class User(UserMixin, BaseModel):
 
     def check_password(self, password) -> bool:
         return check_password_hash(self.password_hash, password)
+
+
+@login_manager.user_loader
+def load_user(user_id: str):
+    return User.query.get(int(user_id))
 
 
 group_tags = db.Table(
