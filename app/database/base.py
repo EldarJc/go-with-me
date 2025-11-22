@@ -18,5 +18,8 @@ class BaseModel(model):
         onupdate=utc_now,
     )
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}(id={self.id})"
+
     def soft_delete(self) -> None:
         self.is_deleted = True
