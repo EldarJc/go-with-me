@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask_login import UserMixin
 from sqlalchemy import (
@@ -16,7 +16,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import login_manager
 
-from . import db
+from . import db, utc_now
 from .base import BaseModel
 from .enums import EventRole, GroupRole
 
@@ -95,6 +95,13 @@ class Group(BaseModel):
         cascade="all, delete-orphan",
     )
 
+    @property
+    def members_count(self) -> int:
+        return len(self.members)
+
+    def is_owner(self, user_id: int) -> bool:
+        return self.owner_id == user_id
+
 
 class GroupMember(BaseModel):
     __tablename__ = "group_members"
@@ -144,6 +151,7 @@ class Event(BaseModel):
     title: Mapped[str] = mapped_column(String(150), nullable=False)
     description: Mapped[str] = mapped_column(Text, default="No description")
     start_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    end_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     mode: Mapped[str] = mapped_column(String, nullable=False)
     owner_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
@@ -169,6 +177,22 @@ class Event(BaseModel):
     tags: Mapped[list["Tag"]] = relationship(
         "Tag", secondary=event_tags, back_populates="events", lazy="selectin"
     )
+
+    @property
+    def attendee_count(self) -> int:
+        return len(self.attendees)
+
+    @property
+    def duration(self) -> timedelta:
+        return self.end_date - self.start_date
+
+    @property
+    def is_active(self) -> bool:
+        return self.start_date <= utc_now() < self.end_date
+
+    @property
+    def is_finished(self) -> bool:
+        return utc_now() >= self.end_date
 
 
 class EventAttendee(BaseModel):
